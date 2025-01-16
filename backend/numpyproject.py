@@ -18,7 +18,7 @@ team_totals['PPG'] = team_totals['PTS']/82
 # Ask the user for a team abbreviation
 team1 = input("Please give me a team name (use 3-letter city abbreviation): ").upper()
 
-
+# Searches for team in the dataset
 if team1 in team_totals.index:
     team1_ppg = team_totals.loc[team1, 'PPG']
     team1_plus_minus = team_totals.loc[team1, '+/-']
