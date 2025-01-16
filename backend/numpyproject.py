@@ -6,7 +6,7 @@ import csv
 
 df = pd.read_csv(r'/Users/omar/Documents/pythontest/2023_nba_player_stats.csv', encoding = 'latin1')
 
-
+#Cleaning Data
 team_totals = df.groupby('Team').sum()
 team_totals = team_totals.drop(['PName','POS', 'GP', 'W', 'L', 'FG%', '3P%', 'FT%'], axis = 1)
 team_totals['FG%'] = team_totals['FGM']/team_totals['FGA']
