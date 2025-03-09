@@ -1,66 +1,52 @@
 import numpy as np
-
 import pandas as pd
+from sklearn.preprocessing import MinMaxScaler
+from scipy.spatial.distance import euclidean
 
-import csv
+# Load dataset
+df = pd.read_csv(r'/Users/omar/Documents/pythontest/NBA-GameWinner-Predictor/backend/2023_nba_player_stats.csv', encoding='latin1')
 
-df = pd.read_csv(r'/Users/omar/Documents/pythontest/2023_nba_player_stats.csv', encoding = 'latin1')
-
-#Cleaning Data
+# Feature Engineering
 team_totals = df.groupby('Team').sum()
-team_totals = team_totals.drop(['PName','POS', 'GP', 'W', 'L', 'FG%', '3P%', 'FT%'], axis = 1)
-team_totals['FG%'] = team_totals['FGM']/team_totals['FGA']
-team_totals['3P%'] = team_totals['3PM']/team_totals['3PA']
-team_totals['FT%'] = team_totals['FTM']/team_totals['FTA']
-team_totals['PPG'] = team_totals['PTS']/82
+team_totals = team_totals.drop(['PName', 'POS', 'GP', 'W', 'L'], axis=1)
 
+# Compute Advanced Stats
+team_totals['FG%'] = team_totals['FGM'] / team_totals['FGA']
+team_totals['3P%'] = team_totals['3PM'] / team_totals['3PA']
+team_totals['FT%'] = team_totals['FTM'] / team_totals['FTA']
+team_totals['PPG'] = team_totals['PTS'] / 82
+team_totals['TOV/G'] = team_totals['TOV'] / 82
+team_totals['REB/G'] = (team_totals['OREB'] + team_totals['DREB']) / 82
+team_totals['OffRtg'] = team_totals['PTS'] / (team_totals['FGA'] + 0.44 * team_totals['FTA'])
+team_totals['DefRtg'] = team_totals['STL'] - team_totals['BLK']  # Proxy for defensive impact
+team_totals['NetRtg'] = team_totals['OffRtg'] - team_totals['DefRtg']
 
-# Ask the user for a team abbreviation
-team1 = input("Please give me a team name (use 3-letter city abbreviation): ").upper()
+# Normalize data
+scaler = MinMaxScaler()
+stats_to_normalize = ['PPG', 'FG%', '3P%', 'TOV/G', 'REB/G', 'OffRtg', 'DefRtg', 'NetRtg']
+team_totals[stats_to_normalize] = scaler.fit_transform(team_totals[stats_to_normalize])
 
-# Searches for team in the dataset
-if team1 in team_totals.index:
-    team1_ppg = team_totals.loc[team1, 'PPG']
-    team1_plus_minus = team_totals.loc[team1, '+/-']
-    team1_FG_percentage = team_totals.loc[team1, 'FG%']
+# Get team input
+team1 = input("Enter first team (3-letter abbreviation): ").upper()
+team2 = input("Enter second team (3-letter abbreviation): ").upper()
+
+if team1 not in team_totals.index or team2 not in team_totals.index:
+    print("One or both teams not found in dataset.")
 else:
-    print(f"Team {team1} not found in the dataset.")
+    # Extract feature vectors
+    team1_stats = team_totals.loc[team1, stats_to_normalize].values
+    team2_stats = team_totals.loc[team2, stats_to_normalize].values
 
-team2 = input("Please give me a team name (use 3-letter city abbreviation): ").upper()
+    # Compute similarity using Euclidean distance
+    distance = euclidean(team1_stats, team2_stats)
 
+    # KNN-Like Score Calculation (Lower distance = Higher chance to win)
+    team1_win_prob = 1 / (1 + np.exp(distance - 1))  # Sigmoid function for probability
+    team2_win_prob = 1 - team1_win_prob
 
-if team2 in team_totals.index:
-    team2_ppg = team_totals.loc[team2, 'PPG']
-    team2_plus_minus = team_totals.loc[team2, '+/-']
-    team2_FG_percentage = team_totals.loc[team2, 'FG%']
-else:
-    print(f"Team {team2} not found in the dataset.")
+    print(f"\nPredicted Win Probability:")
+    print(f"{team1}: {team1_win_prob:.2%}")
+    print(f"{team2}: {team2_win_prob:.2%}")
 
-#Create Variable y which represents team1 chance of winning
-x = 0
-
-#Create Variable y which represents team1 chance of winning
-y = 0
-
-if team1_ppg>team2_ppg:
-    x += 2
-else:
-    y +=2
-
-if team1_plus_minus>team2_plus_minus:
-    x += .5
-else:
-    y +=.5
-
-if team1_FG_percentage>team2_FG_percentage:
-    x += 1.75
-else:
-    y +=1.75
-
-if x>y:
-    print(f"I believe that {team1} will beat {team2}")
-else:
-    print(f"I believe that {team2} will beat {team1}")
-
-
-
+    winner = team1 if team1_win_prob > team2_win_prob else team2
+    print(f"\nPredicted Winner: {winner} 🎯")
